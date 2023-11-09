@@ -32,6 +32,9 @@ orderly2::orderly_resource("data-raw/WPP2022_POP_F01_1_POPULATION_SINGLE_AGE_BOT
 ## Accessed: 2023/08/01
 orderly2::orderly_resource("data-raw/Neonatal_Mortality_Rates_2022.csv")
 
+# WMR malaria countries
+orderly2::orderly_resource("data-raw/wmr_countries.csv")
+
 orderly2::orderly_artefact(
   description = "Combined mortality and age structure data",
   files = "demography.RDS"
@@ -61,13 +64,21 @@ life_table <- life_table_estimates_raw |>
     mx = Central.death.rate.m.x.n.,
     qx = Probability.of.dying.q.x.n.,
     px = Probability.of.surviving.p.x.n.,
-    lx = Number.of.survivors.l.x.,
+    lx = Numberofsurvivorsl.x.,
     dx = Number.of.deaths.d.x.n.,
     Lx = Number.of.person.years.lived.L.x.n.,
     Sx = Survival.ratio.S.x.n.,
-    Tx = Person.years.lived.T.x.,
+    Tx = Person.yearslivedT.x.,
     ex = Expectation.of.life.e.x.,
     ax = Average.number.of.years.lived.a.x.n.
+  ) |>
+  dplyr::filter(
+    !region %in% c(
+      "Sustainable Development Goal (SDG) regions",
+      "UN development groups",
+      "World Bank income groups",
+      "Geographic regions"
+    )
   ) |>
   dplyr::mutate(
     dplyr::across(c("year", "age_lower", "Age.interval..n."), as.integer),
@@ -98,6 +109,14 @@ age_structure <- age_structure_estimates_raw |>
     names_to = "age_lower",
     values_to = "n",
     names_prefix = "X"
+  )  |>
+  dplyr::filter(
+    !region %in% c(
+      "Sustainable Development Goal (SDG) regions",
+      "UN development groups",
+      "World Bank income groups",
+      "Geographic regions"
+    )
   ) |>
   dplyr::mutate(
     age_lower = as.integer(age_lower),
@@ -110,10 +129,15 @@ age_structure <- age_structure_estimates_raw |>
 # ------------------------------------------------------------------------------
 
 # Demography output ------------------------------------------------------------
+wmr_countries <- read.csv("data-raw/wmr_countries.csv")
+
 demography <- life_table |>
   dplyr::left_join(
     age_structure,
     by = c("region", "iso3c", "year", "age_lower", "age_upper")
+  ) |>
+  dplyr::filter(
+    iso3c %in% wmr_countries$iso3c
   )
 
 saveRDS(demography, "demography.RDS")
@@ -125,9 +149,9 @@ neonatal_mortality_raw <- read.csv("data-raw/Neonatal_Mortality_Rates_2022.csv")
 neonatal_mortality <- neonatal_mortality_raw |>
   dplyr::filter(
     Uncertainty.Bounds. == "Median",
-    Country.Name %in% codelist$country.name.en
+    Country.Name %in% countrycode::codelist$country.name.en
   ) |>
-  dplyr::mutate(iso3c = countrycode(Country.Name, "country.name", "iso3c")) |>
+  dplyr::mutate(iso3c = countrycode::countrycode(Country.Name, "country.name", "iso3c")) |>
   dplyr::filter(!is.na(iso3c)) |>
   dplyr::select(-c("Country.Name", "Uncertainty.Bounds.")) |>
   tidyr::pivot_longer(
@@ -139,6 +163,9 @@ neonatal_mortality <- neonatal_mortality_raw |>
   dplyr::mutate(
     year = as.integer(year),
     nnm = nnm / 1000
+  ) |>
+  dplyr::filter(
+    iso3c %in% wmr_countries$iso3c
   )
 
 saveRDS(neonatal_mortality, "neonatal_mortality.RDS")
