@@ -1,7 +1,27 @@
 # Malaria model demography -----------------------------------------------------
 
+# ---- Parameters ---- #
+isos <- c("NGA", "COD", "MOZ")
+
 # ---- Process data ---- # 
-orderly2::orderly_run(name = "process_data")
+orderly2::orderly_run(
+  name = "process_data"
+)
 
 # ---- Adjust mortality rates ---- #
-orderly2::orderly_run(name = "adjust_rates")
+ctx <- context::context_save("contexts")
+
+config <- didehpc::didehpc_config()
+obj <- didehpc::queue_didehpc(ctx, config = config)
+obj$install_packages("mrc-ide/orderly2")
+obj$install_packages("dplyr")
+
+lapply(isos, function(iso){
+  orderly2::orderly_run(
+    name = "adjust_rates",
+    parameters = list(
+      iso3c = iso
+    )
+  )
+})
+
